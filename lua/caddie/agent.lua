@@ -100,12 +100,21 @@ local function build_claude_prompt(payload)
   return SYSTEM_PROMPT .. "\n\nIntents:\n" .. vim.fn.json_encode(payload)
 end
 
+local function strip_code_fence(s)
+  local inner = s:match("```%w*\n(.-)\n```")
+  if inner then
+    return inner
+  end
+  return s
+end
+
 local function parse_claude_response(stdout)
   local ok, decoded = pcall(vim.fn.json_decode, stdout)
   if not ok or not decoded or not decoded.result then
     return nil, "bad claude cli response: " .. stdout
   end
-  local ok2, suggestions = pcall(vim.fn.json_decode, decoded.result)
+  local body = strip_code_fence(vim.trim(decoded.result))
+  local ok2, suggestions = pcall(vim.fn.json_decode, body)
   if not ok2 then
     return nil, "claude returned non-JSON suggestions: " .. decoded.result
   end

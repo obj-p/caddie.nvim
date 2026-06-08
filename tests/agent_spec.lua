@@ -38,4 +38,24 @@ describe("agent claude-code provider", function()
     assert.is_nil(suggestions)
     assert.is_string(err)
   end)
+
+  it("parse_claude_response strips ```json fences from the result", function()
+    local payload = vim.fn.json_encode({
+      {
+        intent_id = "intent-0001",
+        severity = "high",
+        current_keys = "jjjj",
+        suggested_keys = "4j",
+        explanation = "use a count",
+      },
+    })
+    local fake_stdout = vim.fn.json_encode({
+      type = "result",
+      result = "```json\n" .. payload .. "\n```",
+    })
+    local suggestions, err = agent._parse_claude_response(fake_stdout)
+    assert.is_nil(err)
+    assert.equals(1, #suggestions)
+    assert.equals("4j", suggestions[1].suggested_keys)
+  end)
 end)
