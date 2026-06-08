@@ -96,10 +96,44 @@ local function anthropic_call(payload, opts)
   return suggestions
 end
 
-M._impl = anthropic_call
+local function build_claude_prompt(payload)
+  return SYSTEM_PROMPT .. "\n\nIntents:\n" .. vim.fn.json_encode(payload)
+end
+
+local function parse_claude_response(stdout)
+  local ok, decoded = pcall(vim.fn.json_decode, stdout)
+  if not ok or not decoded or not decoded.result then
+    return nil, "bad claude cli response: " .. stdout
+  end
+  local ok2, suggestions = pcall(vim.fn.json_decode, decoded.result)
+  if not ok2 then
+    return nil, "claude returned non-JSON suggestions: " .. decoded.result
+  end
+  return suggestions
+end
+
+local function claude_code_call(payload, _opts)
+  local prompt = build_claude_prompt(payload)
+  local result = vim.fn.system({ "claude", "-p", "--output-format", "json" }, prompt)
+  if vim.v.shell_error ~= 0 then
+    return nil, "claude cli failed: " .. result
+  end
+  return parse_claude_response(result)
+end
+
+local function default_impl(payload, opts)
+  if opts.provider == "claude-code" then
+    return claude_code_call(payload, opts)
+  end
+  return anthropic_call(payload, opts)
+end
+
+M._impl = default_impl
+M._build_claude_prompt = build_claude_prompt
+M._parse_claude_response = parse_claude_response
 
 function M.set_implementation(fn)
-  M._impl = fn or anthropic_call
+  M._impl = fn or default_impl
 end
 
 function M.send(payload, opts)

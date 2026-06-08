@@ -1,0 +1,41 @@
+describe("agent claude-code provider", function()
+  local agent
+
+  before_each(function()
+    package.loaded["caddie.agent"] = nil
+    agent = require("caddie.agent")
+  end)
+
+  it("build_claude_prompt includes system rubric and JSON payload", function()
+    local prompt = agent._build_claude_prompt({ { id = "intent-0001", keys = "jjjj" } })
+    assert.is_true(prompt:find("Vim coach", 1, true) ~= nil)
+    assert.is_true(prompt:find("intent-0001", 1, true) ~= nil)
+  end)
+
+  it("parse_claude_response unwraps the result field and parses JSON", function()
+    local fake_stdout = vim.fn.json_encode({
+      type = "result",
+      subtype = "success",
+      is_error = false,
+      result = vim.fn.json_encode({
+        {
+          intent_id = "intent-0001",
+          severity = "medium",
+          current_keys = "jjjj",
+          suggested_keys = "5j",
+          explanation = "use count",
+        },
+      }),
+    })
+    local suggestions, err = agent._parse_claude_response(fake_stdout)
+    assert.is_nil(err)
+    assert.equals(1, #suggestions)
+    assert.equals("5j", suggestions[1].suggested_keys)
+  end)
+
+  it("parse_claude_response returns error for invalid wrapper", function()
+    local suggestions, err = agent._parse_claude_response("not json")
+    assert.is_nil(suggestions)
+    assert.is_string(err)
+  end)
+end)

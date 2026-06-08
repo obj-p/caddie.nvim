@@ -49,6 +49,10 @@ require("caddie").setup({
 })
 ```
 
+Set `provider = "claude-code"` to route the review through the local
+`claude` CLI instead of the Anthropic API. Auth is handled by Claude Code,
+so `api_key_env` is ignored.
+
 ## Development
 
 ```sh
