@@ -23,6 +23,24 @@ local function new_session_id()
   return os.date("%Y%m%d-%H%M%S") .. "-" .. string.format("%06x", math.random(0, 0xffffff))
 end
 
+local function iso_now()
+  return os.date("!%Y-%m-%dT%H:%M:%SZ")
+end
+
+local function nvim_version()
+  local v = vim.version()
+  return string.format("%d.%d.%d", v.major, v.minor, v.patch)
+end
+
+local function write_meta(path, meta)
+  local f = io.open(path, "w")
+  if not f then
+    return
+  end
+  f:write(vim.fn.json_encode(meta))
+  f:close()
+end
+
 function M.start_session(data_dir, redact_globs)
   if M.active then
     return M.active
@@ -30,17 +48,29 @@ function M.start_session(data_dir, redact_globs)
   math.randomseed(os.time())
   local id = new_session_id()
   local dir = data_dir .. "/" .. id
+  local blobs_dir = data_dir .. "/blobs"
   ensure_dir(dir)
-  ensure_dir(dir .. "/blobs")
+  ensure_dir(blobs_dir)
   local events_path = dir .. "/events.jsonl"
+  local meta_path = dir .. "/meta.json"
+  local meta = {
+    id = id,
+    start_time = iso_now(),
+    nvim_version = nvim_version(),
+    cwd = vim.fn.getcwd(),
+  }
+  write_meta(meta_path, meta)
   M.active = {
     id = id,
     dir = dir,
     events_path = events_path,
-    blobs_dir = dir .. "/blobs",
+    meta_path = meta_path,
+    review_path = dir .. "/review.json",
+    blobs_dir = blobs_dir,
     start_ns = vim.uv.hrtime(),
     redact_globs = redact_globs or {},
     fd = io.open(events_path, "a"),
+    meta = meta,
   }
   return M.active
 end
@@ -52,6 +82,8 @@ function M.stop_session()
   if M.active.fd then
     M.active.fd:close()
   end
+  M.active.meta.end_time = iso_now()
+  write_meta(M.active.meta_path, M.active.meta)
   M.active = nil
 end
 

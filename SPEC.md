@@ -83,11 +83,11 @@ When the buffer's filename matches any glob in `redact_globs`, `edit` and
 
 ```
 ~/.local/share/nvim/caddie/
+├── blobs/              # buffer snapshots, content-addressed, shared across sessions
+│   └── <sha256>
 └── <session-id>/
     ├── meta.json       # start time, nvim version, cwd, end time
     ├── events.jsonl    # append-only event stream
-    ├── blobs/          # buffer snapshots, content-addressed
-    │   └── <sha256>
     └── review.json     # agent output, written after :CaddieReview
 ```
 
