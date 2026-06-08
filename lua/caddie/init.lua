@@ -71,6 +71,13 @@ function M.review(opts)
     events = filtered
   end
 
+  local buf_to_path = {}
+  for _, e in ipairs(events) do
+    if e.kind == "write" and e.buf and e.data and e.data.path then
+      buf_to_path[e.buf] = e.data.path
+    end
+  end
+
   local intents = rules.segment(events)
   local all_suggestions = {}
   local agent_input = {}
@@ -97,10 +104,23 @@ function M.review(opts)
     end
   end
 
+  for _, s in ipairs(all_suggestions) do
+    if s.buf and s.buf ~= vim.NIL then
+      s.path = buf_to_path[s.buf]
+    end
+  end
+
   local f = io.open(review_path, "w")
   if f then
     f:write(vim.fn.json_encode(all_suggestions))
     f:close()
+  end
+
+  if config.current.annotations_enabled and not opts.skip_ui then
+    require("caddie.annotations").refresh(all_suggestions)
+  end
+  if not opts.skip_ui then
+    require("caddie.report").open(all_suggestions)
   end
 
   return all_suggestions, review_path

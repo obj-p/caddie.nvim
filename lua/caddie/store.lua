@@ -1,5 +1,7 @@
 local M = {}
 
+math.randomseed(os.time() + (vim.uv and vim.uv.hrtime() % 1e9 or 0))
+
 M.active = nil
 
 local function ensure_dir(path)
@@ -45,7 +47,6 @@ function M.start_session(data_dir, redact_globs)
   if M.active then
     return M.active
   end
-  math.randomseed(os.time())
   local id = new_session_id()
   local dir = data_dir .. "/" .. id
   local blobs_dir = data_dir .. "/blobs"

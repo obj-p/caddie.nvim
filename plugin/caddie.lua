@@ -3,12 +3,6 @@ if vim.g.loaded_caddie then
 end
 vim.g.loaded_caddie = 1
 
-local function stub(name)
-  return function()
-    vim.notify("caddie: " .. name .. " not yet implemented", vim.log.levels.WARN)
-  end
-end
-
 vim.api.nvim_create_user_command("CaddieStart", function()
   require("caddie.recorder").start()
 end, {})
@@ -19,5 +13,9 @@ vim.api.nvim_create_user_command("CaddieReview", function(args)
   local n = tonumber(args.args)
   require("caddie").review({ last_n_min = n })
 end, { nargs = "?" })
-vim.api.nvim_create_user_command("CaddieReplay", stub("CaddieReplay"), {})
-vim.api.nvim_create_user_command("CaddieToggleAnnotations", stub("CaddieToggleAnnotations"), {})
+vim.api.nvim_create_user_command("CaddieReplay", function()
+  require("caddie.replay").pick()
+end, {})
+vim.api.nvim_create_user_command("CaddieToggleAnnotations", function()
+  require("caddie.annotations").toggle()
+end, {})
