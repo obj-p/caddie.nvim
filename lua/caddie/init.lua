@@ -110,6 +110,17 @@ function M.review(opts)
     end
   end
 
+  local seen = {}
+  local deduped = {}
+  for _, s in ipairs(all_suggestions) do
+    local key = (s.suggested_keys or "") .. "\0" .. (s.explanation or "")
+    if not seen[key] then
+      seen[key] = true
+      table.insert(deduped, s)
+    end
+  end
+  all_suggestions = deduped
+
   local f = io.open(review_path, "w")
   if f then
     f:write(vim.fn.json_encode(all_suggestions))

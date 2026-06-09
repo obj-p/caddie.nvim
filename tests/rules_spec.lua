@@ -34,6 +34,18 @@ describe("rules", function()
       local intents = rules.segment(events)
       assert.equals(2, #intents)
     end)
+
+    it("hard-splits on cmd events", function()
+      local events = {
+        { t = 0, kind = "key", buf = 1, data = { keys = "j" } },
+        { t = 1, kind = "cmd", buf = 1, data = { type = "ex", text = "write" } },
+        { t = 2, kind = "key", buf = 1, data = { keys = "k" } },
+        { t = 3, kind = "cmd", buf = 1, data = { type = "ex", text = "e foo.txt" } },
+        { t = 4, kind = "key", buf = 1, data = { keys = "h" } },
+      }
+      local intents = rules.segment(events)
+      assert.equals(3, #intents)
+    end)
   end)
 
   describe("hjkl-spam rule", function()
@@ -70,6 +82,69 @@ describe("rules", function()
       for _, s in ipairs(suggestions) do
         assert.is_nil(s.explanation:match("hjkl"))
       end
+    end)
+
+    it("does not fire on Insert-mode text containing j or h or k or l", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "mode", buf = 1, data = { from = "n", to = "i" } },
+          { t = 1, kind = "key", buf = 1, data = { keys = "h" } },
+          { t = 2, kind = "key", buf = 1, data = { keys = "e" } },
+          { t = 3, kind = "key", buf = 1, data = { keys = "l" } },
+          { t = 4, kind = "key", buf = 1, data = { keys = "l" } },
+          { t = 5, kind = "key", buf = 1, data = { keys = "o" } },
+          { t = 6, kind = "key", buf = 1, data = { keys = "<Esc>" } },
+          { t = 7, kind = "mode", buf = 1, data = { from = "i", to = "n" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      local suggestions = rules.run_rules(intent, metrics)
+      for _, s in ipairs(suggestions) do
+        assert.is_nil(s.explanation:match("hjkl"), "should not fire for 'hello' in Insert")
+      end
+    end)
+  end)
+
+  describe("dd-then-p rule", function()
+    it("does not fire on Insert-mode text containing 'dd' and 'p'", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "mode", buf = 1, data = { from = "n", to = "i" } },
+          { t = 1, kind = "key", buf = 1, data = { keys = "c" } },
+          { t = 2, kind = "key", buf = 1, data = { keys = "a" } },
+          { t = 3, kind = "key", buf = 1, data = { keys = "d" } },
+          { t = 4, kind = "key", buf = 1, data = { keys = "d" } },
+          { t = 5, kind = "key", buf = 1, data = { keys = "i" } },
+          { t = 6, kind = "key", buf = 1, data = { keys = "e" } },
+          { t = 7, kind = "key", buf = 1, data = { keys = "<Esc>" } },
+          { t = 8, kind = "mode", buf = 1, data = { from = "i", to = "n" } },
+          { t = 9, kind = "key", buf = 1, data = { keys = "p" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        assert.is_nil(s.explanation:match("dd...p"), "should not fire for typed 'caddie' + p")
+      end
+    end)
+
+    it("fires on real Normal-mode dd then navigate then p", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "key", buf = 1, data = { keys = "d" } },
+          { t = 1, kind = "key", buf = 1, data = { keys = "d" } },
+          { t = 2, kind = "key", buf = 1, data = { keys = "j" } },
+          { t = 3, kind = "key", buf = 1, data = { keys = "p" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      local found
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        if s.explanation:match("dd") then found = s end
+      end
+      assert.is_not_nil(found)
     end)
   end)
 

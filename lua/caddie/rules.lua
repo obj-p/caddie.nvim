@@ -52,6 +52,8 @@ function M.segment(events)
       flush()
     elseif e.kind == "write" then
       flush()
+    elseif e.kind == "cmd" then
+      flush()
     end
   end
   flush()
@@ -69,36 +71,47 @@ function M.analyze(intent)
   local idle_ms = 0
   local mode_trace = {}
   local keys_string = {}
+  local normal_keys = {}
+  local mode = "n"
 
   for _, e in ipairs(intent.events) do
-    if e.kind == "key" and e.data and e.data.keys then
+    if e.kind == "mode" and e.data then
+      table.insert(mode_trace, e.data.to)
+      mode = e.data.to
+    elseif e.kind == "key" and e.data and e.data.keys then
       local pieces = split_keys(e.data.keys)
       for _, k in ipairs(pieces) do
         keys_total = keys_total + 1
         table.insert(keys_string, k)
-        if MOTION_KEYS[k] then
-          motion_hist[k] = (motion_hist[k] or 0) + 1
-        end
-        if k == "h" or k == "j" or k == "k" or k == "l" then
-          current_run = current_run + 1
+        if mode == "n" or mode == "v" or mode == "V" then
+          table.insert(normal_keys, k)
+          if MOTION_KEYS[k] then
+            motion_hist[k] = (motion_hist[k] or 0) + 1
+          end
+          if k == "h" or k == "j" or k == "k" or k == "l" then
+            current_run = current_run + 1
+          else
+            if current_run >= 2 then
+              table.insert(hjkl_runs, current_run)
+            end
+            current_run = 0
+          end
+          if k == "u" then
+            undos = undos + 1
+          elseif k == "<C-r>" then
+            redos = redos + 1
+          end
         else
           if current_run >= 2 then
             table.insert(hjkl_runs, current_run)
           end
           current_run = 0
         end
-        if k == "u" then
-          undos = undos + 1
-        elseif k == "<C-r>" then
-          redos = redos + 1
-        end
       end
       if last_t and e.t - last_t > 1000 then
         idle_ms = idle_ms + (e.t - last_t)
       end
       last_t = e.t
-    elseif e.kind == "mode" and e.data then
-      table.insert(mode_trace, e.data.to)
     end
   end
   if current_run >= 2 then
@@ -114,6 +127,7 @@ function M.analyze(intent)
     idle_ms = idle_ms,
     mode_trace = mode_trace,
     keys_string = table.concat(keys_string),
+    normal_keys = table.concat(normal_keys),
   }
 end
 
@@ -163,7 +177,7 @@ local function rule_arrow_in_insert(intent, metrics)
 end
 
 local function rule_dd_then_p(intent, metrics)
-  local s = metrics.keys_string
+  local s = metrics.normal_keys or ""
   if s:find("dd") and s:find("p", 1, true) then
     local _, ddend = s:find("dd")
     local pidx = s:find("p", ddend + 1, true)
@@ -177,7 +191,7 @@ end
 
 local function rule_xxxx_delete(intent, metrics)
   local run = 0
-  for _, k in ipairs(split_keys(metrics.keys_string)) do
+  for _, k in ipairs(split_keys(metrics.normal_keys or "")) do
     if k == "x" then
       run = run + 1
       if run >= 3 then

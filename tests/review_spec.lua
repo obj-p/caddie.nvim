@@ -89,6 +89,32 @@ describe("review", function()
     end
   end)
 
+  it("dedupes suggestions with identical suggested_keys and explanation", function()
+    write_events({
+      { t = 0, kind = "key", buf = 1, data = { keys = "jjjjjj" } },
+      { t = 1, kind = "edit", buf = 1, data = { first = 0, last = 0, new_last = 1, blob = "x" } },
+      { t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } },
+    })
+    agent.set_implementation(function()
+      return {
+        { intent_id = "intent-0001", severity = "low",
+          current_keys = "jjjjjj", suggested_keys = "5j",
+          explanation = "Use a count." },
+        { intent_id = "intent-0001", severity = "low",
+          current_keys = "jjjjjj", suggested_keys = "5j",
+          explanation = "Use a count." },
+      }
+    end)
+    local suggestions = caddie.review()
+    local count_5j = 0
+    for _, s in ipairs(suggestions) do
+      if s.suggested_keys == "5j" and s.explanation == "Use a count." then
+        count_5j = count_5j + 1
+      end
+    end
+    assert.equals(1, count_5j)
+  end)
+
   it("completes within 10 seconds for <200 intents with mocked agent", function()
     local events = {}
     for i = 1, 150 do
