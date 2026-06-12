@@ -92,49 +92,57 @@ function M.review(opts)
     end
   end
 
+  local function finish()
+    for _, s in ipairs(all_suggestions) do
+      if s.buf and s.buf ~= vim.NIL then
+        s.path = buf_to_path[s.buf]
+      end
+    end
+
+    local seen = {}
+    local deduped = {}
+    for _, s in ipairs(all_suggestions) do
+      local key = (s.suggested_keys or "") .. "\0" .. (s.explanation or "")
+      if not seen[key] then
+        seen[key] = true
+        table.insert(deduped, s)
+      end
+    end
+    all_suggestions = deduped
+
+    local f = io.open(review_path, "w")
+    if f then
+      f:write(vim.fn.json_encode(all_suggestions))
+      f:close()
+    end
+
+    if config.current.annotations_enabled and not opts.skip_ui then
+      require("caddie.annotations").refresh(all_suggestions)
+    end
+    if not opts.skip_ui then
+      require("caddie.report").open(all_suggestions)
+    end
+
+    return all_suggestions, review_path
+  end
+
   if #agent_input > 0 and not opts.skip_agent then
     local payload = agent.build_payload(agent_input)
-    local suggestions, err = agent.send(payload, config.current.agent)
-    if suggestions then
-      for _, s in ipairs(suggestions) do
-        table.insert(all_suggestions, s)
+    local result, result_path
+    agent.send(payload, config.current.agent, function(suggestions, err)
+      if suggestions then
+        for _, s in ipairs(suggestions) do
+          table.insert(all_suggestions, s)
+        end
+      elseif err then
+        vim.notify("caddie agent: " .. err, vim.log.levels.WARN)
       end
-    elseif err then
-      vim.notify("caddie agent: " .. err, vim.log.levels.WARN)
-    end
+      result, result_path = finish()
+    end)
+    return result, result_path
   end
 
-  for _, s in ipairs(all_suggestions) do
-    if s.buf and s.buf ~= vim.NIL then
-      s.path = buf_to_path[s.buf]
-    end
-  end
-
-  local seen = {}
-  local deduped = {}
-  for _, s in ipairs(all_suggestions) do
-    local key = (s.suggested_keys or "") .. "\0" .. (s.explanation or "")
-    if not seen[key] then
-      seen[key] = true
-      table.insert(deduped, s)
-    end
-  end
-  all_suggestions = deduped
-
-  local f = io.open(review_path, "w")
-  if f then
-    f:write(vim.fn.json_encode(all_suggestions))
-    f:close()
-  end
-
-  if config.current.annotations_enabled and not opts.skip_ui then
-    require("caddie.annotations").refresh(all_suggestions)
-  end
-  if not opts.skip_ui then
-    require("caddie.report").open(all_suggestions)
-  end
-
-  return all_suggestions, review_path
+  return finish()
 end
 
 return M
