@@ -115,6 +115,39 @@ describe("review", function()
     assert.equals(1, count_5j)
   end)
 
+  it("returns nil and finishes later when the agent impl is async", function()
+    local session = write_events({
+      { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
+      { t = 1, kind = "edit", buf = 1, data = { first = 4, last = 4, new_last = 4, blob = "x" } },
+      { t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } },
+    })
+    agent.set_implementation(function(_, _, cb)
+      vim.defer_fn(function()
+        cb({
+          { intent_id = "intent-0001", severity = "low",
+            current_keys = "jjjjj", suggested_keys = "5j",
+            explanation = "Use a count." },
+        })
+      end, 10)
+    end)
+    local suggestions = caddie.review({ skip_ui = true })
+    assert.is_nil(suggestions)
+    local done = vim.wait(2000, function()
+      return vim.fn.filereadable(session.review_path) == 1
+    end)
+    assert.is_true(done)
+    local f = io.open(session.review_path, "r")
+    local written = vim.fn.json_decode(f:read("*a"))
+    f:close()
+    local found = false
+    for _, s in ipairs(written) do
+      if s.suggested_keys == "5j" then
+        found = true
+      end
+    end
+    assert.is_true(found)
+  end)
+
   it("completes within 10 seconds for <200 intents with mocked agent", function()
     local events = {}
     for i = 1, 150 do

@@ -53,10 +53,11 @@ M.build_payload = function(intents_with_metrics)
   return payload
 end
 
-local function anthropic_call(payload, opts)
+local function anthropic_call(payload, opts, cb)
   local key = os.getenv(opts.api_key_env or "ANTHROPIC_API_KEY")
   if not key or key == "" then
-    return nil, "missing API key in $" .. (opts.api_key_env or "ANTHROPIC_API_KEY")
+    cb(nil, "missing API key in $" .. (opts.api_key_env or "ANTHROPIC_API_KEY"))
+    return
   end
   local body = vim.fn.json_encode({
     model = opts.model or "claude-opus-4-7",
@@ -79,21 +80,28 @@ local function anthropic_call(payload, opts)
     "-H", "content-type: application/json",
     "--data-binary", "@" .. tmp,
   }
-  local result = vim.fn.system(cmd)
-  os.remove(tmp)
-  if vim.v.shell_error ~= 0 then
-    return nil, "curl failed: " .. result
-  end
-  local ok, decoded = pcall(vim.fn.json_decode, result)
-  if not ok or not decoded.content then
-    return nil, "bad response: " .. result
-  end
-  local text = decoded.content[1] and decoded.content[1].text or ""
-  local ok2, suggestions = pcall(vim.fn.json_decode, text)
-  if not ok2 then
-    return nil, "agent returned non-JSON: " .. text
-  end
-  return suggestions
+  vim.system(cmd, { text = true }, function(out)
+    vim.schedule(function()
+      os.remove(tmp)
+      if out.code ~= 0 then
+        cb(nil, "curl failed: " .. (out.stderr or ""))
+        return
+      end
+      local result = out.stdout or ""
+      local ok, decoded = pcall(vim.fn.json_decode, result)
+      if not ok or not decoded.content then
+        cb(nil, "bad response: " .. result)
+        return
+      end
+      local text = decoded.content[1] and decoded.content[1].text or ""
+      local ok2, suggestions = pcall(vim.fn.json_decode, text)
+      if not ok2 then
+        cb(nil, "agent returned non-JSON: " .. text)
+        return
+      end
+      cb(suggestions)
+    end)
+  end)
 end
 
 local function build_claude_prompt(payload)
@@ -121,20 +129,24 @@ local function parse_claude_response(stdout)
   return suggestions
 end
 
-local function claude_code_call(payload, _opts)
+local function claude_code_call(payload, _opts, cb)
   local prompt = build_claude_prompt(payload)
-  local result = vim.fn.system({ "claude", "-p", "--output-format", "json" }, prompt)
-  if vim.v.shell_error ~= 0 then
-    return nil, "claude cli failed: " .. result
-  end
-  return parse_claude_response(result)
+  vim.system({ "claude", "-p", "--output-format", "json" }, { stdin = prompt, text = true }, function(out)
+    vim.schedule(function()
+      if out.code ~= 0 then
+        cb(nil, "claude cli failed: " .. (out.stderr or ""))
+        return
+      end
+      cb(parse_claude_response(out.stdout or ""))
+    end)
+  end)
 end
 
-local function default_impl(payload, opts)
+local function default_impl(payload, opts, cb)
   if opts.provider == "claude-code" then
-    return claude_code_call(payload, opts)
+    return claude_code_call(payload, opts, cb)
   end
-  return anthropic_call(payload, opts)
+  return anthropic_call(payload, opts, cb)
 end
 
 M._impl = default_impl
@@ -145,8 +157,11 @@ function M.set_implementation(fn)
   M._impl = fn or default_impl
 end
 
-function M.send(payload, opts)
-  return M._impl(payload, opts or {})
+function M.send(payload, opts, cb)
+  local suggestions, err = M._impl(payload, opts or {}, cb)
+  if suggestions ~= nil or err ~= nil then
+    cb(suggestions, err)
+  end
 end
 
 return M
