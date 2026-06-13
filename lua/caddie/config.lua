@@ -2,7 +2,7 @@ local M = {}
 
 M.defaults = {
   data_dir = vim.fn.stdpath("data") .. "/caddie",
-  autostart = true,
+  autostart = false,
   auto_review_on_exit = false,
   annotations_enabled = true,
   redact_globs = { ".env", ".env.*", "*.pem", "*.key" },
