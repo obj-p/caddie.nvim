@@ -127,6 +127,7 @@ function M.review(opts)
   end
 
   if #agent_input > 0 and not opts.skip_agent then
+    vim.notify(string.format("caddie: reviewing %d intents...", #agent_input), vim.log.levels.INFO)
     local payload = agent.build_payload(agent_input)
     local result, result_path
     agent.send(payload, config.current.agent, function(suggestions, err)
