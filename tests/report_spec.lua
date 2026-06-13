@@ -45,7 +45,7 @@ describe("report", function()
     local lines = report.render({
       { intent_id = "intent-0001", severity = "high", title = "Scrolling through a long function",
         current_keys = "a", suggested_keys = "b", explanation = "c" },
-      { intent_id = "intent-0002", severity = "medium",
+      { intent_id = "intent-0002", severity = "medium", title = vim.NIL,
         current_keys = "a", suggested_keys = "b", explanation = "c",
         path = "/tmp/foo.lua", line_range = { 9, 9 } },
       { intent_id = "intent-0003", severity = "low",
