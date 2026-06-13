@@ -33,7 +33,7 @@ local function on_lines(_, buf, _, first, last, new_last)
     local lines = vim.api.nvim_buf_get_lines(buf, first, new_last, false)
     blob = store.write_blob(table.concat(lines, "\n"))
   end
-  emit("edit", buf, { first = first, last = last, new_last = new_last, blob = blob })
+  emit("edit", buf, { first = first, last = last, new_last = new_last, blob = blob, path = path })
 end
 
 local function attach_buffer(buf)

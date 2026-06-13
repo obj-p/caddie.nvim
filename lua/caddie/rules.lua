@@ -131,7 +131,7 @@ function M.analyze(intent)
   }
 end
 
-local function suggestion(intent, severity, current_keys, suggested_keys, explanation, suggested_exec)
+local function suggestion(intent, severity, current_keys, suggested_keys, explanation, suggested_exec, title)
   local last_edit
   for _, e in ipairs(intent.events) do
     if e.kind == "edit" then
@@ -140,6 +140,7 @@ local function suggestion(intent, severity, current_keys, suggested_keys, explan
   end
   return {
     intent_id = intent.id,
+    title = title,
     severity = severity,
     current_keys = current_keys,
     suggested_keys = suggested_keys,
@@ -156,7 +157,7 @@ local function rule_hjkl_spam(intent, metrics)
       return suggestion(intent, "medium", metrics.keys_string,
         "f{char} or w/b for word motion",
         "Run of " .. run .. " hjkl keys. Use f{char} for in-line jumps or w/b for word motion.",
-        "w")
+        "w", "Repeated hjkl motion")
     end
   end
 end
@@ -172,7 +173,7 @@ local function rule_arrow_in_insert(intent, metrics)
           return suggestion(intent, "low", metrics.keys_string,
             "<Esc> then motion",
             "Arrow key used in Insert mode. Exit to Normal with <Esc> and use h/j/k/l or word motions.",
-            "<Esc>w")
+            "<Esc>w", "Arrow keys in Insert mode")
         end
       end
     end
@@ -188,7 +189,7 @@ local function rule_dd_then_p(intent, metrics)
       return suggestion(intent, "low", metrics.keys_string,
         ":m for moving lines",
         "Sequence dd...p detected. Use :m to move a line directly without using a register.",
-        ":m+1<CR>")
+        ":m+1<CR>", "Delete then paste to move a line")
     end
   end
 end
@@ -202,7 +203,7 @@ local function rule_xxxx_delete(intent, metrics)
         return suggestion(intent, "low", metrics.keys_string,
           "dw, d$, or df{char}",
           "Run of x deletes. Use dw, d$, or df{char} for word, line-end, or char-bounded deletes.",
-          "dw")
+          "dw", "Repeated x deletes")
       end
     else
       run = 0
@@ -221,7 +222,7 @@ local function rule_slow_search(intent, metrics)
     return suggestion(intent, "low", metrics.keys_string,
       "/pattern or *",
       "Multiple long motion runs detected. Use /pattern or * to jump to a known string.",
-      "*")
+      "*", "Long motion runs to navigate")
   end
 end
 

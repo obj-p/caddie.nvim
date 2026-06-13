@@ -80,6 +80,28 @@ describe("report", function()
     assert.equals("```", lines[fence_at + 3])
   end)
 
+  it("marks jump and play availability", function()
+    local lines = report.render({
+      { intent_id = "intent-0001", severity = "medium", current_keys = "xxxx",
+        suggested_keys = "dw", suggested_exec = "dw", explanation = "e",
+        path = "/tmp/foo.lua", line_range = { 4, 4 },
+        excerpt = { "5| foo bar" } },
+    })
+    local joined = table.concat(lines, "\n")
+    assert.is_true(joined:find("jump", 1, true) ~= nil)
+    assert.is_true(joined:find("play", 1, true) ~= nil)
+  end)
+
+  it("omits action markers when nothing is available", function()
+    local lines = report.render({
+      { intent_id = "intent-0001", severity = "low", current_keys = "a",
+        suggested_keys = "b", explanation = "c" },
+    })
+    local joined = table.concat(lines, "\n")
+    assert.is_nil(joined:find("jump", 1, true))
+    assert.is_nil(joined:find("play", 1, true))
+  end)
+
   it("exposes play data for suggestions with an exec and excerpt", function()
     local _, _, plays = report.render({
       { intent_id = "intent-0001", severity = "medium", current_keys = "jjjjj",
