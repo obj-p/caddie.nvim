@@ -34,6 +34,9 @@ local function find_active_session()
     return store.active.dir, store.active.events_path, store.active.review_path
   end
   local config = require("caddie.config")
+  if vim.fn.isdirectory(config.current.data_dir) == 0 then
+    return
+  end
   local entries = vim.fn.readdir(config.current.data_dir)
   table.sort(entries)
   for i = #entries, 1, -1 do
@@ -52,6 +55,11 @@ function M.review(opts)
   local config = require("caddie.config")
   local rules = require("caddie.rules")
   local agent = require("caddie.agent")
+
+  if M._reviewing then
+    vim.notify("caddie: a review is already running", vim.log.levels.WARN)
+    return
+  end
 
   local session_dir, events_path, review_path = find_active_session()
   if not events_path or vim.fn.filereadable(events_path) == 0 then
@@ -84,21 +92,21 @@ function M.review(opts)
   local intent_edits = {}
 
   for _, intent in ipairs(intents) do
-    local metrics = rules.analyze(intent)
-    for _, s in ipairs(rules.run_rules(intent, metrics)) do
-      table.insert(all_suggestions, s)
+    if not rules.is_redacted_intent(intent) then
+      local metrics = rules.analyze(intent)
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        table.insert(all_suggestions, s)
+      end
+      table.insert(agent_input, { intent = intent, metrics = metrics })
     end
     for _, e in ipairs(intent.events) do
       if e.kind == "edit" and e.data and e.data.blob and e.data.blob ~= vim.NIL then
         intent_edits[intent.id] = e.data
       end
     end
-    if not rules.is_redacted_intent(intent) then
-      table.insert(agent_input, { intent = intent, metrics = metrics })
-    end
   end
 
-  local function read_excerpt(edit)
+  local function read_excerpt(edit, target_line)
     local f = io.open(session_dir .. "/blobs/" .. edit.blob, "r")
     if not f then
       return nil
@@ -106,9 +114,22 @@ function M.review(opts)
     local content = f:read("*a")
     f:close()
     local blob_lines = vim.split(content, "\n", { plain = true })
+    local first = edit.first or 0
+    local idx = 0
+    if type(target_line) == "number" then
+      idx = math.max(0, target_line - first)
+    end
+    local start = math.max(0, idx - 1)
     local excerpt = {}
-    for i = 1, math.min(#blob_lines, 6) do
-      table.insert(excerpt, ((edit.first or 0) + i) .. "| " .. blob_lines[i])
+    local has_content = false
+    for i = start + 1, math.min(#blob_lines, start + 6) do
+      if blob_lines[i] ~= "" then
+        has_content = true
+      end
+      table.insert(excerpt, (first + i) .. "| " .. blob_lines[i])
+    end
+    if not has_content then
+      return nil
     end
     return excerpt
   end
@@ -120,7 +141,8 @@ function M.review(opts)
       end
       local edit = s.intent_id and intent_edits[s.intent_id]
       if edit and not s.excerpt then
-        s.excerpt = read_excerpt(edit)
+        local target = type(s.line_range) == "table" and s.line_range[1] or nil
+        s.excerpt = read_excerpt(edit, target)
       end
     end
 
@@ -148,10 +170,12 @@ function M.review(opts)
       require("caddie.report").open(all_suggestions)
     end
 
+    M._reviewing = false
     return all_suggestions, review_path
   end
 
   if #agent_input > 0 and not opts.skip_agent then
+    M._reviewing = true
     vim.notify(string.format("caddie: reviewing %d intents...", #agent_input), vim.log.levels.INFO)
     local payload = agent.build_payload(agent_input)
     local result, result_path

@@ -103,4 +103,25 @@ describe("recorder", function()
     local blob_files = vim.fn.readdir(session.blobs_dir)
     assert.equals(0, #blob_files, "expected no blob files for redacted session")
   end)
+
+  it("does not record keystrokes typed in a redacted file", function()
+    recorder.start()
+    local session = store.active
+
+    local buf = vim.api.nvim_create_buf(true, false)
+    local file = tmpdir .. "/.env"
+    vim.api.nvim_buf_set_name(buf, file)
+    vim.api.nvim_set_current_buf(buf)
+
+    local function feed(keys)
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(keys, true, false, true), "tx", false)
+    end
+    feed("iSECRET=topsecret<Esc>")
+
+    recorder.stop()
+    local events = read_events(session.events_path)
+    for _, e in ipairs(events) do
+      assert.is_not.equal("key", e.kind, "no key events should be recorded in a redacted buffer")
+    end
+  end)
 end)
