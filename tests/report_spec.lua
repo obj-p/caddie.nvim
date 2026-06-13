@@ -80,6 +80,57 @@ describe("report", function()
     assert.equals("```", lines[fence_at + 3])
   end)
 
+  it("exposes play data for suggestions with an exec and excerpt", function()
+    local _, _, plays = report.render({
+      { intent_id = "intent-0001", severity = "medium", current_keys = "jjjjj",
+        suggested_keys = "w", suggested_exec = "w", explanation = "e",
+        path = "/tmp/foo.lua", line_range = { 4, 4 },
+        excerpt = { "5| local a = 1", "6| local b = 2" } },
+    })
+    local pd
+    for _, p in pairs(plays) do
+      if p then
+        pd = p
+      end
+    end
+    assert.is_not_nil(pd)
+    assert.equals("w", pd.keys)
+    assert.equals(1, pd.line)
+    assert.same({ "local a = 1", "local b = 2" }, pd.lines)
+  end)
+
+  it("maps p to replay the suggestion under the cursor", function()
+    local captured
+    package.loaded["caddie.playback"] = { play = function(o)
+      captured = o
+    end }
+    local buf = report.open({
+      { intent_id = "intent-0001", severity = "medium", current_keys = "jjjjj",
+        suggested_keys = "w", suggested_exec = "w", explanation = "e",
+        path = "/tmp/foo.lua", line_range = { 4, 4 },
+        excerpt = { "5| local a = 1", "6| local b = 2" } },
+    })
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local lnum
+    for i, l in ipairs(lines) do
+      if l:find("Suggested", 1, true) then
+        lnum = i
+      end
+    end
+    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+    local cb
+    for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+      if m.lhs == "p" then
+        cb = m.callback
+      end
+    end
+    assert.is_not_nil(cb)
+    cb()
+    assert.is_not_nil(captured)
+    assert.equals("w", captured.keys)
+    package.loaded["caddie.playback"] = nil
+  end)
+
   it("open maps <CR> to jump to the suggestion location", function()
     local target = vim.fn.tempname()
     vim.fn.writefile({ "one", "two", "three", "four", "five" }, target)
