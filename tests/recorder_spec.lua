@@ -37,6 +37,28 @@ describe("recorder", function()
     recorder.stop()
   end)
 
+  it("notifies when recording starts and stops", function()
+    local msgs = {}
+    local orig = vim.notify
+    vim.notify = function(m)
+      table.insert(msgs, m)
+    end
+    recorder.start()
+    recorder.stop()
+    vim.notify = orig
+    local started, stopped = false, false
+    for _, m in ipairs(msgs) do
+      if m:lower():find("start", 1, true) then
+        started = true
+      end
+      if m:lower():find("stop", 1, true) then
+        stopped = true
+      end
+    end
+    assert.is_true(started, "expected a start notification")
+    assert.is_true(stopped, "expected a stop notification")
+  end)
+
   it("creates a session dir on start", function()
     recorder.start()
     assert.is_not_nil(store.active)
