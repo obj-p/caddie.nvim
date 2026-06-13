@@ -43,13 +43,23 @@ local function write_meta(path, meta)
   f:close()
 end
 
+local function wipe_sessions(data_dir)
+  if vim.fn.isdirectory(data_dir) == 0 then
+    return
+  end
+  for _, name in ipairs(vim.fn.readdir(data_dir)) do
+    vim.fn.delete(data_dir .. "/" .. name, "rf")
+  end
+end
+
 function M.start_session(data_dir, redact_globs)
   if M.active then
     return M.active
   end
+  wipe_sessions(data_dir)
   local id = new_session_id()
   local dir = data_dir .. "/" .. id
-  local blobs_dir = data_dir .. "/blobs"
+  local blobs_dir = dir .. "/blobs"
   ensure_dir(dir)
   ensure_dir(blobs_dir)
   local events_path = dir .. "/events.jsonl"

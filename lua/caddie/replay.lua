@@ -70,8 +70,7 @@ local function rebuild_to(target)
 end
 
 function M.start(session_dir)
-  local config = require("caddie.config")
-  state.blobs_dir = config.current.data_dir .. "/blobs"
+  state.blobs_dir = session_dir .. "/blobs"
   state.events = read_events(session_dir .. "/events.jsonl")
   state.idx = 0
   vim.cmd("tabnew")
