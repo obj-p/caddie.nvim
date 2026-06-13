@@ -54,6 +54,7 @@ function M.start()
     return
   end
   store.start_session(config.current.data_dir, config.current.redact_globs)
+  vim.notify("caddie: recording started", vim.log.levels.INFO)
   state.augroup = vim.api.nvim_create_augroup("caddie_recorder", { clear = true })
 
   state.on_key_ns = vim.on_key(function(_, typed)
@@ -157,6 +158,7 @@ function M.stop()
   state.last_macro = ""
   state.cmdline_text = ""
   store.stop_session()
+  vim.notify("caddie: recording stopped", vim.log.levels.INFO)
 end
 
 function M.is_recording()
