@@ -17,6 +17,11 @@ describe("agent claude-code provider", function()
     assert.is_true(prompt:find("title", 1, true) ~= nil)
   end)
 
+  it("build_claude_prompt asks for a runnable suggested_exec field", function()
+    local prompt = agent._build_claude_prompt({ { id = "intent-0001", keys = "jjjj" } })
+    assert.is_true(prompt:find("suggested_exec", 1, true) ~= nil)
+  end)
+
   it("build_claude_prompt tells the agent to use null over a vague title", function()
     local prompt = agent._build_claude_prompt({ { id = "intent-0001", keys = "jjjj" } })
     assert.is_true(prompt:find("title (string or null", 1, true) ~= nil)
