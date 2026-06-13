@@ -41,6 +41,27 @@ describe("report", function()
     assert.equals(120, count)
   end)
 
+  it("headers use the title, then path and line, then intent_id", function()
+    local lines = report.render({
+      { intent_id = "intent-0001", severity = "high", title = "Scrolling through a long function",
+        current_keys = "a", suggested_keys = "b", explanation = "c" },
+      { intent_id = "intent-0002", severity = "medium",
+        current_keys = "a", suggested_keys = "b", explanation = "c",
+        path = "/tmp/foo.lua", line_range = { 9, 9 } },
+      { intent_id = "intent-0003", severity = "low",
+        current_keys = "a", suggested_keys = "b", explanation = "c" },
+    })
+    local headers = {}
+    for _, l in ipairs(lines) do
+      if l:match("^## ") then
+        table.insert(headers, l)
+      end
+    end
+    assert.equals("## [high] Scrolling through a long function", headers[1])
+    assert.equals("## [medium] foo.lua:10", headers[2])
+    assert.equals("## [low] intent-0003", headers[3])
+  end)
+
   it("open maps <CR> to jump to the suggestion location", function()
     local target = vim.fn.tempname()
     vim.fn.writefile({ "one", "two", "three", "four", "five" }, target)

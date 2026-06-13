@@ -21,8 +21,16 @@ function M.render(suggestions)
   for _, s in ipairs(suggestions) do
     local lr = s.line_range
     local has_location = s.path and lr and lr ~= vim.NIL and type(lr) == "table"
+    local header = s.title
+    if not header or header == vim.NIL or header == "" then
+      if has_location then
+        header = vim.fn.fnamemodify(s.path, ":t") .. ":" .. ((lr[1] or 0) + 1)
+      else
+        header = s.intent_id or ""
+      end
+    end
     local first = #lines + 1
-    table.insert(lines, "## [" .. (s.severity or "?") .. "] " .. (s.intent_id or ""))
+    table.insert(lines, "## [" .. (s.severity or "?") .. "] " .. header)
     table.insert(lines, "")
     table.insert(lines, "- Current: `" .. (s.current_keys or "") .. "`")
     table.insert(lines, "- Suggested: `" .. (s.suggested_keys or "") .. "`")
