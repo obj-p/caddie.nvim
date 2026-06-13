@@ -7,7 +7,7 @@ describe("caddie", function()
   it("loads and applies defaults", function()
     require("caddie").setup()
     local config = require("caddie.config")
-    assert.is_true(config.current.autostart)
+    assert.is_false(config.current.autostart)
     assert.equals("anthropic", config.current.agent.provider)
   end)
 
