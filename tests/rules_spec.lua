@@ -148,6 +148,46 @@ describe("rules", function()
     end)
   end)
 
+  describe("executable suggestion", function()
+    it("hjkl-spam carries a runnable suggested_exec", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
+          { t = 1, kind = "edit", buf = 1, data = { first = 4, last = 4, new_last = 4, blob = "x" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      local found
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        if s.explanation:match("hjkl") then
+          found = s
+        end
+      end
+      assert.is_not_nil(found)
+      assert.is_string(found.suggested_exec)
+      assert.is_true(#found.suggested_exec > 0)
+    end)
+
+    it("xxxx-delete carries a runnable suggested_exec", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "key", buf = 1, data = { keys = "xxxx" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      local found
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        if s.explanation:match("deletes") then
+          found = s
+        end
+      end
+      assert.is_not_nil(found)
+      assert.equals("dw", found.suggested_exec)
+    end)
+  end)
+
   describe("redaction", function()
     it("flags intent with vim.NIL blob as redacted", function()
       local intent = {

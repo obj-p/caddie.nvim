@@ -13,6 +13,10 @@ return a JSON array of suggestions where each item has:
 - severity ("low" | "medium" | "high")
 - current_keys (string)
 - suggested_keys (string)
+- suggested_exec (string or null, the suggested_keys as a literal runnable key
+  sequence that can be fed to Vim, e.g. "5j" or "df,". Use angle-bracket notation
+  for special keys, e.g. "<Esc>" or "<CR>". Use null when the suggestion has no
+  single runnable form.)
 - explanation (string, one line)
 - buf (number or null)
 - line_range ([start, end] or null)

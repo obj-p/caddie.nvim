@@ -131,7 +131,7 @@ function M.analyze(intent)
   }
 end
 
-local function suggestion(intent, severity, current_keys, suggested_keys, explanation)
+local function suggestion(intent, severity, current_keys, suggested_keys, explanation, suggested_exec)
   local last_edit
   for _, e in ipairs(intent.events) do
     if e.kind == "edit" then
@@ -143,6 +143,7 @@ local function suggestion(intent, severity, current_keys, suggested_keys, explan
     severity = severity,
     current_keys = current_keys,
     suggested_keys = suggested_keys,
+    suggested_exec = suggested_exec,
     explanation = explanation,
     buf = last_edit and last_edit.buf or vim.NIL,
     line_range = last_edit and { last_edit.data.first, last_edit.data.new_last } or vim.NIL,
@@ -154,7 +155,8 @@ local function rule_hjkl_spam(intent, metrics)
     if run >= 4 then
       return suggestion(intent, "medium", metrics.keys_string,
         "f{char} or w/b for word motion",
-        "Run of " .. run .. " hjkl keys. Use f{char} for in-line jumps or w/b for word motion.")
+        "Run of " .. run .. " hjkl keys. Use f{char} for in-line jumps or w/b for word motion.",
+        "w")
     end
   end
 end
@@ -169,7 +171,8 @@ local function rule_arrow_in_insert(intent, metrics)
         if k == "<Left>" or k == "<Right>" or k == "<Up>" or k == "<Down>" then
           return suggestion(intent, "low", metrics.keys_string,
             "<Esc> then motion",
-            "Arrow key used in Insert mode. Exit to Normal with <Esc> and use h/j/k/l or word motions.")
+            "Arrow key used in Insert mode. Exit to Normal with <Esc> and use h/j/k/l or word motions.",
+            "<Esc>w")
         end
       end
     end
@@ -184,7 +187,8 @@ local function rule_dd_then_p(intent, metrics)
     if pidx and pidx > ddend then
       return suggestion(intent, "low", metrics.keys_string,
         ":m for moving lines",
-        "Sequence dd...p detected. Use :m to move a line directly without using a register.")
+        "Sequence dd...p detected. Use :m to move a line directly without using a register.",
+        ":m+1<CR>")
     end
   end
 end
@@ -197,7 +201,8 @@ local function rule_xxxx_delete(intent, metrics)
       if run >= 3 then
         return suggestion(intent, "low", metrics.keys_string,
           "dw, d$, or df{char}",
-          "Run of x deletes. Use dw, d$, or df{char} for word, line-end, or char-bounded deletes.")
+          "Run of x deletes. Use dw, d$, or df{char} for word, line-end, or char-bounded deletes.",
+          "dw")
       end
     else
       run = 0
@@ -215,7 +220,8 @@ local function rule_slow_search(intent, metrics)
   if runs >= 2 then
     return suggestion(intent, "low", metrics.keys_string,
       "/pattern or *",
-      "Multiple long motion runs detected. Use /pattern or * to jump to a known string.")
+      "Multiple long motion runs detected. Use /pattern or * to jump to a known string.",
+      "*")
   end
 end
 
