@@ -54,6 +54,7 @@ function M.render(suggestions)
         header = s.intent_id or ""
       end
     end
+    local pd = play_data(s)
     local first = #lines + 1
     table.insert(lines, "## [" .. (s.severity or "?") .. "] " .. header)
     table.insert(lines, "")
@@ -63,6 +64,16 @@ function M.render(suggestions)
     if has_location then
       table.insert(lines, "- " .. s.path .. ":" .. ((lr[1] or 0) + 1))
     end
+    local markers = {}
+    if has_location then
+      table.insert(markers, "⏎ jump")
+    end
+    if pd then
+      table.insert(markers, "p play")
+    end
+    if #markers > 0 then
+      table.insert(lines, "- " .. table.concat(markers, "   "))
+    end
     if type(s.excerpt) == "table" and #s.excerpt > 0 then
       table.insert(lines, "")
       table.insert(lines, "```")
@@ -71,7 +82,6 @@ function M.render(suggestions)
       end
       table.insert(lines, "```")
     end
-    local pd = play_data(s)
     for i = first, #lines do
       if has_location then
         targets[i] = { path = s.path, line = (lr[1] or 0) + 1 }

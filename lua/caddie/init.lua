@@ -81,7 +81,7 @@ function M.review(opts)
 
   local buf_to_path = {}
   for _, e in ipairs(events) do
-    if e.kind == "write" and e.buf and e.data and e.data.path then
+    if (e.kind == "write" or e.kind == "edit") and e.buf and e.data and e.data.path and e.data.path ~= "" then
       buf_to_path[e.buf] = e.data.path
     end
   end

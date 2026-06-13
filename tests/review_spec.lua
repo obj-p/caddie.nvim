@@ -49,6 +49,19 @@ describe("review", function()
     f:close()
   end)
 
+  it("resolves suggestion path from edit events without a write", function()
+    write_events({
+      { t = 0, kind = "key", buf = 1, data = { keys = "xxxx" } },
+      { t = 1, kind = "edit", buf = 1, data = { first = 0, last = 0, new_last = 1, blob = "x", path = "/tmp/foo.lua" } },
+      { t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } },
+    })
+    agent.set_implementation(function() return {} end)
+    local suggestions = caddie.review({ skip_ui = true })
+    local s = suggestions[1]
+    assert.is_not_nil(s)
+    assert.equals("/tmp/foo.lua", s.path)
+  end)
+
   it("skips rule suggestions for redacted intents", function()
     write_events({
       { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },

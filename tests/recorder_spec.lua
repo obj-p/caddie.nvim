@@ -96,6 +96,27 @@ describe("recorder", function()
     assert.is_true((seen.cmd or 0) > 0, "expected cmd events")
   end)
 
+  it("records the file path on edit events", function()
+    recorder.start()
+    local session = store.active
+
+    local buf = vim.api.nvim_create_buf(true, false)
+    local file = tmpdir .. "/sample.txt"
+    vim.api.nvim_buf_set_name(buf, file)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello" })
+
+    recorder.stop()
+    local events = read_events(session.events_path)
+    local saw = false
+    for _, e in ipairs(events) do
+      if e.kind == "edit" and e.data.path and vim.endswith(e.data.path, "/sample.txt") then
+        saw = true
+      end
+    end
+    assert.is_true(saw, "expected edit events to carry the file path")
+  end)
+
   it("redacts .env files: no blob written, blob field is null", function()
     recorder.start()
     local session = store.active

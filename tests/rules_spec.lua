@@ -169,6 +169,45 @@ describe("rules", function()
       assert.is_true(#found.suggested_exec > 0)
     end)
 
+    it("xxxx-delete carries a human title", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "key", buf = 1, data = { keys = "xxxx" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      local found
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        if s.explanation:match("deletes") then
+          found = s
+        end
+      end
+      assert.is_not_nil(found)
+      assert.equals("Repeated x deletes", found.title)
+    end)
+
+    it("hjkl-spam carries a human title", function()
+      local intent = {
+        id = "intent-0001",
+        events = {
+          { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
+          { t = 1, kind = "edit", buf = 1, data = { first = 4, last = 4, new_last = 4, blob = "x" } },
+        },
+      }
+      local metrics = rules.analyze(intent)
+      local found
+      for _, s in ipairs(rules.run_rules(intent, metrics)) do
+        if s.explanation:match("hjkl") then
+          found = s
+        end
+      end
+      assert.is_not_nil(found)
+      assert.is_string(found.title)
+      assert.is_true(#found.title > 0)
+      assert.is_nil(found.title:find("intent", 1, true))
+    end)
+
     it("xxxx-delete carries a runnable suggested_exec", function()
       local intent = {
         id = "intent-0001",
