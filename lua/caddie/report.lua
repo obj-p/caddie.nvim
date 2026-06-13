@@ -37,6 +37,16 @@ function M.render(suggestions)
     table.insert(lines, "- " .. (s.explanation or ""))
     if has_location then
       table.insert(lines, "- " .. s.path .. ":" .. ((lr[1] or 0) + 1))
+    end
+    if type(s.excerpt) == "table" and #s.excerpt > 0 then
+      table.insert(lines, "")
+      table.insert(lines, "```")
+      for _, el in ipairs(s.excerpt) do
+        table.insert(lines, el)
+      end
+      table.insert(lines, "```")
+    end
+    if has_location then
       for i = first, #lines do
         targets[i] = { path = s.path, line = (lr[1] or 0) + 1 }
       end
