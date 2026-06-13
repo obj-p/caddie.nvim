@@ -41,6 +41,51 @@ describe("report", function()
     assert.equals(120, count)
   end)
 
+  it("open maps <CR> to jump to the suggestion location", function()
+    local target = vim.fn.tempname()
+    vim.fn.writefile({ "one", "two", "three", "four", "five" }, target)
+    local buf = report.open({
+      { intent_id = "intent-0001", severity = "high",
+        current_keys = "jjjj", suggested_keys = "4j", explanation = "use count",
+        path = target, line_range = { 3, 3 } },
+    })
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local lnum
+    for i, l in ipairs(lines) do
+      if l:find("Current:", 1, true) then
+        lnum = i
+      end
+    end
+    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+    local cb
+    for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+      if m.lhs == "<CR>" then
+        cb = m.callback
+      end
+    end
+    assert.is_not_nil(cb)
+    cb()
+    assert.equals(vim.uv.fs_realpath(target), vim.uv.fs_realpath(vim.api.nvim_buf_get_name(0)))
+    assert.equals(4, vim.api.nvim_win_get_cursor(0)[1])
+  end)
+
+  it("open maps q to close the report window", function()
+    local wins_before = #vim.api.nvim_list_wins()
+    local buf = report.open({
+      { intent_id = "intent-0001", severity = "high",
+        current_keys = "a", suggested_keys = "b", explanation = "c" },
+    })
+    local has_q = false
+    for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+      if m.lhs == "q" then
+        has_q = true
+      end
+    end
+    assert.is_true(has_q)
+    vim.cmd("close")
+    assert.equals(wins_before, #vim.api.nvim_list_wins())
+  end)
+
   it("open creates a scratch markdown buffer", function()
     local buf = report.open({
       { intent_id = "intent-0001", severity = "high",
