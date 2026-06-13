@@ -62,6 +62,24 @@ describe("report", function()
     assert.equals("## [low] intent-0003", headers[3])
   end)
 
+  it("renders the excerpt as a fenced code block", function()
+    local lines = report.render({
+      { intent_id = "intent-0001", severity = "low",
+        current_keys = "a", suggested_keys = "b", explanation = "c",
+        excerpt = { "5| local a = 1", "6| local b = 2" } },
+    })
+    local fence_at
+    for i, l in ipairs(lines) do
+      if l == "```" and not fence_at then
+        fence_at = i
+      end
+    end
+    assert.is_not_nil(fence_at)
+    assert.equals("5| local a = 1", lines[fence_at + 1])
+    assert.equals("6| local b = 2", lines[fence_at + 2])
+    assert.equals("```", lines[fence_at + 3])
+  end)
+
   it("open maps <CR> to jump to the suggestion location", function()
     local target = vim.fn.tempname()
     vim.fn.writefile({ "one", "two", "three", "four", "five" }, target)

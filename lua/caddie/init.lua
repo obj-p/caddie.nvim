@@ -53,7 +53,7 @@ function M.review(opts)
   local rules = require("caddie.rules")
   local agent = require("caddie.agent")
 
-  local _, events_path, review_path = find_active_session()
+  local session_dir, events_path, review_path = find_active_session()
   if not events_path or vim.fn.filereadable(events_path) == 0 then
     vim.notify("caddie: no session found", vim.log.levels.WARN)
     return
@@ -81,21 +81,46 @@ function M.review(opts)
   local intents = rules.segment(events)
   local all_suggestions = {}
   local agent_input = {}
+  local intent_edits = {}
 
   for _, intent in ipairs(intents) do
     local metrics = rules.analyze(intent)
     for _, s in ipairs(rules.run_rules(intent, metrics)) do
       table.insert(all_suggestions, s)
     end
+    for _, e in ipairs(intent.events) do
+      if e.kind == "edit" and e.data and e.data.blob and e.data.blob ~= vim.NIL then
+        intent_edits[intent.id] = e.data
+      end
+    end
     if not rules.is_redacted_intent(intent) then
       table.insert(agent_input, { intent = intent, metrics = metrics })
     end
+  end
+
+  local function read_excerpt(edit)
+    local f = io.open(session_dir .. "/blobs/" .. edit.blob, "r")
+    if not f then
+      return nil
+    end
+    local content = f:read("*a")
+    f:close()
+    local blob_lines = vim.split(content, "\n", { plain = true })
+    local excerpt = {}
+    for i = 1, math.min(#blob_lines, 6) do
+      table.insert(excerpt, ((edit.first or 0) + i) .. "| " .. blob_lines[i])
+    end
+    return excerpt
   end
 
   local function finish()
     for _, s in ipairs(all_suggestions) do
       if s.buf and s.buf ~= vim.NIL then
         s.path = buf_to_path[s.buf]
+      end
+      local edit = s.intent_id and intent_edits[s.intent_id]
+      if edit and not s.excerpt then
+        s.excerpt = read_excerpt(edit)
       end
     end
 

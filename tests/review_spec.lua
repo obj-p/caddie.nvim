@@ -115,6 +115,26 @@ describe("review", function()
     assert.equals(1, count_5j)
   end)
 
+  it("attaches a numbered excerpt from the session blob to suggestions", function()
+    store.start_session(tmpdir, {})
+    local hash = store.write_blob("local a = 1\nlocal b = 2")
+    store.write_event({ t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } })
+    store.write_event({ t = 1, kind = "edit", buf = 1, data = { first = 4, last = 4, new_last = 6, blob = hash } })
+    store.write_event({ t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } })
+    store.stop_session()
+    agent.set_implementation(function() return {} end)
+    local suggestions = caddie.review({ skip_ui = true })
+    local with_excerpt
+    for _, s in ipairs(suggestions) do
+      if s.excerpt then
+        with_excerpt = s
+      end
+    end
+    assert.is_not_nil(with_excerpt)
+    assert.equals("5| local a = 1", with_excerpt.excerpt[1])
+    assert.equals("6| local b = 2", with_excerpt.excerpt[2])
+  end)
+
   it("notifies that the agent review is running before it completes", function()
     write_events({
       { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
