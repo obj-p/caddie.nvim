@@ -49,6 +49,84 @@ describe("review", function()
     f:close()
   end)
 
+  it("skips rule suggestions for redacted intents", function()
+    write_events({
+      { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
+      { t = 1, kind = "edit", buf = 1, data = { first = 0, last = 0, new_last = 1, blob = vim.NIL } },
+      { t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } },
+    })
+    agent.set_implementation(function() return {} end)
+    local suggestions = caddie.review({ skip_ui = true })
+    assert.equals(0, #suggestions)
+  end)
+
+  it("does not emit a file error when reviewing with no data dir", function()
+    vim.cmd("messages clear")
+    local result = caddie.review()
+    assert.is_nil(result)
+    local msgs = vim.fn.execute("messages")
+    assert.is_nil(msgs:find("E484"))
+  end)
+
+  it("ignores a second review while one is in flight", function()
+    write_events({
+      { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
+      { t = 1, kind = "edit", buf = 1, data = { first = 4, last = 4, new_last = 4, blob = "x" } },
+      { t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } },
+    })
+    local calls = 0
+    agent.set_implementation(function(_, _, _)
+      calls = calls + 1
+    end)
+    caddie.review({ skip_ui = true })
+    caddie.review({ skip_ui = true })
+    assert.equals(1, calls)
+  end)
+
+  it("omits the excerpt for an empty deletion window", function()
+    store.start_session(tmpdir, {})
+    local hash = store.write_blob("")
+    store.write_event({ t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } })
+    store.write_event({ t = 1, kind = "edit", buf = 1, data = { first = 4, last = 8, new_last = 4, blob = hash } })
+    store.write_event({ t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } })
+    store.stop_session()
+    agent.set_implementation(function() return {} end)
+    local suggestions = caddie.review({ skip_ui = true })
+    assert.is_true(#suggestions > 0)
+    for _, s in ipairs(suggestions) do
+      assert.is_nil(s.excerpt)
+    end
+  end)
+
+  it("centers the excerpt on the suggested line", function()
+    store.start_session(tmpdir, {})
+    local body = {}
+    for i = 1, 10 do
+      body[i] = "L" .. i
+    end
+    local hash = store.write_blob(table.concat(body, "\n"))
+    store.write_event({ t = 0, kind = "key", buf = 1, data = { keys = "x" } })
+    store.write_event({ t = 1, kind = "edit", buf = 1, data = { first = 0, last = 0, new_last = 10, blob = hash } })
+    store.write_event({ t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } })
+    store.stop_session()
+    agent.set_implementation(function()
+      return { { intent_id = "intent-0001", severity = "high", current_keys = "x",
+        suggested_keys = "dd", explanation = "e", line_range = { 7, 8 } } }
+    end)
+    local suggestions = caddie.review({ skip_ui = true })
+    local agent_sug
+    for _, s in ipairs(suggestions) do
+      if s.suggested_keys == "dd" then
+        agent_sug = s
+      end
+    end
+    assert.is_not_nil(agent_sug)
+    assert.is_not_nil(agent_sug.excerpt)
+    local joined = table.concat(agent_sug.excerpt, "\n")
+    assert.is_true(joined:find("8| L8", 1, true) ~= nil)
+    assert.is_nil(joined:find("1| L1", 1, true))
+  end)
+
   it("excludes redacted intents from agent payload", function()
     write_events({
       { t = 0, kind = "key", buf = 1, data = { keys = "i" } },

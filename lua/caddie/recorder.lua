@@ -64,6 +64,9 @@ function M.start()
     if keys == "" then
       return
     end
+    if store.is_redacted(vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())) then
+      return
+    end
     local executing = vim.fn.reg_executing()
     if executing ~= "" and executing ~= state.last_macro then
       state.last_macro = executing
