@@ -115,6 +115,31 @@ describe("review", function()
     assert.equals(1, count_5j)
   end)
 
+  it("notifies that the agent review is running before it completes", function()
+    write_events({
+      { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
+      { t = 1, kind = "edit", buf = 1, data = { first = 4, last = 4, new_last = 4, blob = "x" } },
+      { t = 2, kind = "mode", buf = 1, data = { from = "n", to = "n" } },
+    })
+    agent.set_implementation(function(_, _, cb)
+      vim.defer_fn(function() cb({}) end, 10)
+    end)
+    local messages = {}
+    local orig_notify = vim.notify
+    vim.notify = function(msg, ...)
+      table.insert(messages, msg)
+    end
+    caddie.review({ skip_ui = true })
+    vim.notify = orig_notify
+    local notified = false
+    for _, m in ipairs(messages) do
+      if m:lower():find("review", 1, true) then
+        notified = true
+      end
+    end
+    assert.is_true(notified)
+  end)
+
   it("returns nil and finishes later when the agent impl is async", function()
     local session = write_events({
       { t = 0, kind = "key", buf = 1, data = { keys = "jjjjj" } },
