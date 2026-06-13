@@ -6,6 +6,7 @@ local SYSTEM_PROMPT = [[You are a Vim coach. Given a session split into intents,
 each with metrics, a key sequence, mode trace, and a small buffer-change window,
 return a JSON array of suggestions where each item has:
 - intent_id (string)
+- title (string, a few words describing what the user was doing, e.g. "Scrolling to the end of a function")
 - severity ("low" | "medium" | "high")
 - current_keys (string)
 - suggested_keys (string)
