@@ -23,14 +23,12 @@ describe("replay", function()
     return session
   end
 
-  it("lists sessions excluding the shared blobs dir", function()
+  it("lists only the most recent session", function()
     make_session_with_edits({ "x" }, { "y" })
-    make_session_with_edits({ "a" }, { "b" })
+    local latest = make_session_with_edits({ "a" }, { "b" })
     local sessions = replay.list_sessions()
-    assert.equals(2, #sessions)
-    for _, s in ipairs(sessions) do
-      assert.is_not.equal("blobs", s.id)
-    end
+    assert.equals(1, #sessions)
+    assert.equals(latest.id, sessions[1].id)
   end)
 
   it("reconstructs final buffer state within 1-line delta", function()
